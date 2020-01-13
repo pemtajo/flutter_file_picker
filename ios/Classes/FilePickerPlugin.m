@@ -19,12 +19,34 @@
                                      methodChannelWithName:@"file_picker"
                                      binaryMessenger:[registrar messenger]];
     
-    UIViewController *viewController = [UIApplication sharedApplication].delegate.window.rootViewController;
+    UIViewController *viewController = [self topMostController];
     FilePickerPlugin* instance = [[FilePickerPlugin alloc] initWithViewController:viewController];
     
     [registrar addMethodCallDelegate:instance channel:channel];
 }
 
++ (UIViewController*)topMostController {
+    UIWindow *topWndow = [UIApplication sharedApplication].keyWindow;
+    UIViewController *topController = topWndow.rootViewController;
+
+    if (topController == nil)
+    {
+        // The windows in the array are ordered from back to front by window level; thus,
+        // the last window in the array is on top of all other app windows.
+        for (UIWindow *aWndow in [[UIApplication sharedApplication].windows reverseObjectEnumerator])
+        {
+            topController = aWndow.rootViewController;
+            if (topController)
+                break;
+        }
+    }
+
+    while (topController.presentedViewController) {
+        topController = topController.presentedViewController;
+    }
+
+    return topController;
+}
 
 - (instancetype)initWithViewController:(UIViewController *)viewController {
     self = [super init];
