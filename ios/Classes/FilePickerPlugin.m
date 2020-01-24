@@ -19,33 +19,10 @@
                                      methodChannelWithName:@"file_picker"
                                      binaryMessenger:[registrar messenger]];
     
-    UIViewController *viewController = [self topMostController];
+    UIViewController *viewController = [UIApplication sharedApplication].delegate.window.rootViewController;
     FilePickerPlugin* instance = [[FilePickerPlugin alloc] initWithViewController:viewController];
-    
+
     [registrar addMethodCallDelegate:instance channel:channel];
-}
-
-+ (UIViewController*)topMostController {
-    UIWindow *topWndow = [UIApplication sharedApplication].keyWindow;
-    UIViewController *topController = topWndow.rootViewController;
-
-    if (topController == nil)
-    {
-        // The windows in the array are ordered from back to front by window level; thus,
-        // the last window in the array is on top of all other app windows.
-        for (UIWindow *aWndow in [[UIApplication sharedApplication].windows reverseObjectEnumerator])
-        {
-            topController = aWndow.rootViewController;
-            if (topController)
-                break;
-        }
-    }
-
-    while (topController.presentedViewController) {
-        topController = topController.presentedViewController;
-    }
-
-    return topController;
 }
 
 - (instancetype)initWithViewController:(UIViewController *)viewController {
@@ -53,7 +30,7 @@
     if(self) {
         self.viewController = viewController;
     }
-    
+
     return self;
 }
 
@@ -65,7 +42,7 @@
         _result = nil;
         return;
     }
-    
+
     _result = result;
     BOOL isMultiplePick = [call.arguments boolValue];
     if(isMultiplePick || [call.method isEqualToString:@"ANY"] || [call.method containsString:@"__CUSTOM"]) {
@@ -88,13 +65,32 @@
         result(FlutterMethodNotImplemented);
         _result = nil;
     }
-    
+
 }
 
 #pragma mark - Resolvers
 
+- (UIViewController*)topViewController {
+    return [self topViewControllerWithRootViewController:[UIApplication sharedApplication].keyWindow.rootViewController];
+}
+
+- (UIViewController*)topViewControllerWithRootViewController:(UIViewController*)rootViewController {
+    if ([rootViewController isKindOfClass:[UITabBarController class]]) {
+        UITabBarController* tabBarController = (UITabBarController*)rootViewController;
+        return [self topViewControllerWithRootViewController:tabBarController.selectedViewController];
+    } else if ([rootViewController isKindOfClass:[UINavigationController class]]) {
+        UINavigationController* navigationController = (UINavigationController*)rootViewController;
+        return [self topViewControllerWithRootViewController:navigationController.visibleViewController];
+    } else if (rootViewController.presentedViewController) {
+        UIViewController* presentedViewController = rootViewController.presentedViewController;
+        return [self topViewControllerWithRootViewController:presentedViewController];
+    } else {
+        return rootViewController;
+    }
+}
+
 - (void)resolvePickDocumentWithMultipleSelection:(BOOL)allowsMultipleSelection {
-    
+
     @try{
         self.documentPickerController = [[UIDocumentPickerViewController alloc]
                              initWithDocumentTypes:@[self.fileType]
@@ -104,51 +100,51 @@
         _result = nil;
         return;
     }
-    
+
     if (@available(iOS 11.0, *)) {
         self.documentPickerController.allowsMultipleSelection = allowsMultipleSelection;
     } else if(allowsMultipleSelection) {
        Log(@"Multiple file selection is only supported on iOS 11 and above. Single selection will be used.");
     }
-    
+
     self.documentPickerController.delegate = self;
     self.documentPickerController.modalPresentationStyle = UIModalPresentationCurrentContext;
     self.galleryPickerController.allowsEditing = NO;
-    
-    [_viewController presentViewController:self.documentPickerController animated:YES completion:nil];
+
+    [[self topViewController] presentViewController:self.documentPickerController animated:YES completion:nil];
 }
 
 - (void) resolvePickImage {
-    
+
     self.galleryPickerController = [[UIImagePickerController alloc] init];
     self.galleryPickerController.delegate = self;
     self.galleryPickerController.modalPresentationStyle = UIModalPresentationCurrentContext;
     self.galleryPickerController.mediaTypes = @[(NSString *)kUTTypeImage];
     self.galleryPickerController.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
-    
-    [_viewController presentViewController:self.galleryPickerController animated:YES completion:nil];
+
+    [[self topViewController] presentViewController:self.galleryPickerController animated:YES completion:nil];
 }
 
 - (void) resolvePickAudio {
-    
+
     self.audioPickerController = [[MPMediaPickerController alloc] initWithMediaTypes:MPMediaTypeAnyAudio];
     self.audioPickerController.delegate = self;
     self.audioPickerController.showsCloudItems = NO;
     self.audioPickerController.allowsPickingMultipleItems = NO;
     self.audioPickerController.modalPresentationStyle = UIModalPresentationCurrentContext;
-    
-    [self.viewController presentViewController:self.audioPickerController animated:YES completion:nil];
+
+    [[self topViewController] presentViewController:self.audioPickerController animated:YES completion:nil];
 }
 
 - (void) resolvePickVideo {
-    
+
     self.galleryPickerController = [[UIImagePickerController alloc] init];
     self.galleryPickerController.delegate = self;
     self.galleryPickerController.modalPresentationStyle = UIModalPresentationCurrentContext;
     self.galleryPickerController.mediaTypes = @[(NSString*)kUTTypeMovie, (NSString*)kUTTypeAVIMovie, (NSString*)kUTTypeVideo, (NSString*)kUTTypeMPEG4];
     self.galleryPickerController.videoQuality = UIImagePickerControllerQualityTypeHigh;
-    
-    [self.viewController presentViewController:self.galleryPickerController animated:YES completion:nil];
+
+    [[self topViewController] presentViewController:self.galleryPickerController animated:YES completion:nil];
 }
 
 #pragma mark - Delegates
